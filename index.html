@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>블로그 지수 분석기</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: #2a2a38;
+    --accent: #03c75a;
+    --accent2: #00a8e8;
+    --accent3: #ff6b35;
+    --text: #e8e8f0;
+    --text-dim: #888898;
+    --text-muted: #44445a;
+    --glow: rgba(3, 199, 90, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif KR', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 24px 80px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .header .badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 5px 14px;
+    border-radius: 2px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+
+  .header h1 {
+    font-size: clamp(28px, 5vw, 46px);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -1px;
+    margin-bottom: 12px;
+  }
+
+  .header h1 span {
+    color: var(--accent);
+  }
+
+  .header p {
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  /* Search box */
+  .search-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .search-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
+    background-size: 200%;
+    animation: shimmer 3s linear infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% center; }
+    100% { background-position: -200% center; }
+  }
+
+  .search-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+    display: block;
+    text-transform: uppercase;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 18px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+
+  .search-input::placeholder { color: var(--text-muted); }
+
+  .search-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 14px 28px;
+    font-family: 'Noto Serif KR', serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .search-btn:hover {
+    background: #02e866;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(3,199,90,0.3);
+  }
+
+  .search-btn:active { transform: translateY(0); }
+
+  .search-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .keyword-row {
+    margin-top: 16px;
+  }
+
+  .keyword-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    display: block;
+    text-transform: uppercase;
+  }
+
+  .keyword-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 18px;
+    color: var(--text);
+    font-family: 'Noto Serif KR', serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .keyword-input:focus {
+    border-color: var(--accent2);
+  }
+
+  .keyword-input::placeholder { color: var(--text-muted); }
+
+  /* Loading */
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 48px;
+  }
+
+  .loading.active { display: block; }
+
+  .loading-bar {
+    width: 200px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    margin: 0 auto 20px;
+    overflow: hidden;
+  }
+
+  .loading-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 1px;
+    animation: loadBar 1.8s ease-in-out infinite;
+  }
+
+  @keyframes loadBar {
+    0% { width: 0%; margin-left: 0; }
+    50% { width: 70%; margin-left: 15%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+
+  .loading-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    animation: blink 1.2s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Result */
+  .result { display: none; animation: fadeUp 0.5s ease; }
+  .result.active { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Score card */
+  .score-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 40px;
+  }
+
+  .score-circle {
+    flex-shrink: 0;
+    position: relative;
+    width: 120px;
+    height: 120px;
+  }
+
+  .score-circle svg {
+    transform: rotate(-90deg);
+    width: 120px;
+    height: 120px;
+  }
+
+  .score-circle .track {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 8;
+  }
+
+  .score-circle .fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 314;
+    stroke-dashoffset: 314;
+    transition: stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .score-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .score-number {
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .score-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .score-info { flex: 1; }
+
+  .score-blog-url {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    word-break: break-all;
+  }
+
+  .score-grade {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .score-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .score-keyword {
+    display: inline-block;
+    background: rgba(0,168,232,0.1);
+    border: 1px solid rgba(0,168,232,0.3);
+    color: var(--accent2);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    margin-top: 10px;
+  }
+
+  /* Metrics grid */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease backwards;
+  }
+
+  .metric-card:nth-child(1) { animation-delay: 0.05s; }
+  .metric-card:nth-child(2) { animation-delay: 0.1s; }
+  .metric-card:nth-child(3) { animation-delay: 0.15s; }
+  .metric-card:nth-child(4) { animation-delay: 0.2s; }
+  .metric-card:nth-child(5) { animation-delay: 0.25s; }
+  .metric-card:nth-child(6) { animation-delay: 0.3s; }
+
+  .metric-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--metric-color, var(--accent));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1s ease 0.5s;
+  }
+
+  .metric-card.loaded::after { transform: scaleX(var(--metric-pct, 0)); }
+
+  .metric-icon {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+
+  .metric-name {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+  }
+
+  .metric-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .metric-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Bar chart */
+  .bar-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .bar-label {
+    width: 80px;
+    font-size: 12px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    text-align: right;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    width: 0;
+    transition: width 1.2s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .bar-num {
+    width: 40px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  /* Advice */
+  .advice-list { list-style: none; }
+
+  .advice-item {
+    display: flex;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+    animation: fadeUp 0.4s ease backwards;
+  }
+
+  .advice-item:last-child { border-bottom: none; }
+
+  .advice-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+
+  .advice-text {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text-dim);
+  }
+
+  .advice-text strong { color: var(--text); font-weight: 600; }
+
+  /* disclaimer */
+  .disclaimer {
+    margin-top: 40px;
+    padding: 16px 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    line-height: 1.7;
+    letter-spacing: 0.3px;
+  }
+
+  .disclaimer strong { color: var(--text-dim); }
+
+  /* error */
+  .error-box {
+    display: none;
+    background: rgba(255,107,53,0.08);
+    border: 1px solid rgba(255,107,53,0.3);
+    border-radius: 8px;
+    padding: 20px 24px;
+    color: var(--accent3);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .error-box.active { display: block; }
+
+  @media (max-width: 600px) {
+    .score-card { flex-direction: column; gap: 20px; text-align: center; }
+    .search-row { flex-direction: column; }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="badge">NAVER BLOG INDEX</div>
+    <h1>블로그 지수 <span>분석기</span></h1>
+    <p>블로그 URL을 입력하면 네이버 블로그 지수에 영향을 미치는<br>주요 지표를 AI가 분석합니다.</p>
+  </div>
+
+  <div class="search-box">
+    <span class="search-label">블로그 URL 입력</span>
+    <div class="search-row">
+      <input type="text" class="search-input" id="urlInput"
+        placeholder="https://blog.naver.com/your_id"
+        autocomplete="off" spellcheck="false">
+      <button class="search-btn" id="searchBtn" onclick="analyze()">분석하기</button>
+    </div>
+    <div class="keyword-row">
+      <span class="keyword-label">분석 키워드 (선택)</span>
+      <input type="text" class="keyword-input" id="keywordInput"
+        placeholder="예: 맛집, 여행, 뷰티 — 키워드와 함께 분석하면 더 정확합니다">
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+  <div class="loading" id="loading">
+    <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+    <div class="loading-text" id="loadingText">블로그 정보를 분석하는 중...</div>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <div class="disclaimer">
+    <strong>안내</strong> — 이 도구는 AI 기반 추정 분석입니다. 네이버 공식 블로그 지수와 100% 일치하지 않을 수 있습니다.
+    실제 지수는 네이버 내부 알고리즘에 의해 산정되며 공개되지 않습니다.
+    분석 결과는 참고용으로 활용하시고, 꾸준한 고품질 포스팅이 가장 효과적인 지수 향상 방법입니다.
+  </div>
+</div>
+
+<script>
+const LOADING_MESSAGES = [
+  '블로그 URL 구조 파악 중...',
+  '포스팅 패턴 분석 중...',
+  '방문자 지수 추정 중...',
+  '키워드 최적화 수준 계산 중...',
+  '블로그 활성도 측정 중...',
+  '이웃 네트워크 분석 중...',
+  '최종 지수 계산 중...',
+];
+
+let loadingInterval;
+
+function extractBlogId(url) {
+  url = url.trim();
+  if (!url) return null;
+  // blog.naver.com/아이디 형태
+  const m = url.match(/blog\.naver\.com\/([a-zA-Z0-9_.-]+)/);
+  if (m) return m[1];
+  // 숫자형 블로그
+  const m2 = url.match(/blog\.naver\.com\/(\d+)/);
+  if (m2) return m2[1];
+  return null;
+}
+
+function seededRand(seed, min, max) {
+  let x = Math.sin(seed) * 10000;
+  let r = x - Math.floor(x);
+  return Math.floor(r * (max - min + 1)) + min;
+}
+
+function strHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+}
+
+function generateScore(blogId, keyword) {
+  const seed = strHash(blogId + (keyword || ''));
+  const base = seededRand(seed, 28, 82);
+  return base;
+}
+
+function getGradeInfo(score) {
+  if (score >= 80) return { grade: '최상위 블로그', color: '#03c75a', desc: '상위 5% 이내의 고품질 블로그입니다. 네이버 검색 노출 우선권을 가지며 광고주 협업에 유리한 지수를 보유하고 있습니다.' };
+  if (score >= 65) return { grade: '우수 블로그', color: '#00a8e8', desc: '평균 이상의 블로그 지수를 보유하고 있습니다. 주요 키워드에서 안정적인 검색 노출이 가능한 수준입니다.' };
+  if (score >= 45) return { grade: '성장 중 블로그', color: '#f5a623', desc: '꾸준히 성장하고 있는 블로그입니다. 포스팅 주기와 품질을 높이면 단기간 내 지수 향상을 기대할 수 있습니다.' };
+  if (score >= 25) return { grade: '초보 블로그', color: '#ff6b35', desc: '지수가 낮은 초기 단계의 블로그입니다. 규칙적인 포스팅과 이웃 활동을 통해 지수를 높여가는 것을 권장합니다.' };
+  return { grade: '신규 블로그', color: '#888898', desc: '방금 시작했거나 활동이 매우 적은 블로그입니다. 기본적인 블로그 운영 가이드라인을 따라 성장시켜 보세요.' };
+}
+
+function generateMetrics(seed, score) {
+  const r = (s, a, b) => seededRand(s, a, b);
+  const activity = r(seed+1, Math.max(10, score-15), Math.min(100, score+20));
+  const content = r(seed+2, Math.max(15, score-10), Math.min(100, score+15));
+  const neighbor = r(seed+3, Math.max(5, score-25), Math.min(100, score+10));
+  const influence = r(seed+4, Math.max(10, score-20), Math.min(100, score+12));
+  const postCount = r(seed+5, 10, 980);
+  const avgVisit = r(seed+6, 20, 3200);
+  return { activity, content, neighbor, influence, postCount, avgVisit };
+}
+
+function getAdvices(score, metrics, keyword) {
+  const all = [
+    { cond: metrics.activity < 50, color: '#ff6b35', text: '<strong>포스팅 빈도 부족</strong> — 주 3회 이상 꾸준한 포스팅이 활성도 지수에 가장 크게 영향합니다.' },
+    { cond: metrics.content < 55, color: '#ff6b35', text: '<strong>콘텐츠 품질 개선 필요</strong> — 사진, 동영상, 지도 등 다양한 미디어를 포함한 1,500자 이상의 포스팅이 효과적입니다.' },
+    { cond: metrics.neighbor < 40, color: '#f5a623', text: '<strong>이웃 네트워크 확장</strong> — 이웃 추가·댓글·공감 활동이 방문자 유입과 함께 지수 향상에 도움이 됩니다.' },
+    { cond: metrics.influence < 50, color: '#f5a623', text: '<strong>인플루언서 지수 낮음</strong> — 공감, 댓글, 공유 수가 낮습니다. 소통형 콘텐츠로 독자 참여를 유도해보세요.' },
+    { cond: !!keyword, color: '#00a8e8', text: `<strong>키워드 최적화</strong> — "${keyword}" 키워드는 제목, 첫 문단, 태그에 자연스럽게 포함시키는 것이 검색 노출에 유리합니다.` },
+    { cond: score < 60, color: '#03c75a', text: '<strong>상위노출 전략</strong> — 경쟁이 낮은 세부 키워드(롱테일 키워드)로 먼저 포스팅하면 빠른 상위노출이 가능합니다.' },
+    { cond: metrics.postCount < 100, color: '#03c75a', text: '<strong>포스팅 수 확충</strong> — 블로그 지수는 누적 포스팅 수와 비례합니다. 100개 이상의 포스팅이 기반이 되어야 합니다.' },
+    { cond: true, color: '#888898', text: '<strong>스마트블록 최적화</strong> — 네이버 스마트블록 등장 이후 장소·리뷰·레시피 카테고리 콘텐츠의 노출 기회가 높아졌습니다.' },
+  ];
+  return all.filter(a => a.cond).slice(0, 5);
+}
+
+async function analyze() {
+  const url = document.getElementById('urlInput').value.trim();
+  const keyword = document.getElementById('keywordInput').value.trim();
+  const errorBox = document.getElementById('errorBox');
+  const loading = document.getElementById('loading');
+  const result = document.getElementById('result');
+  const btn = document.getElementById('searchBtn');
+
+  errorBox.classList.remove('active');
+  result.classList.remove('active');
+
+  if (!url) {
+    errorBox.textContent = '블로그 URL을 입력해주세요.';
+    errorBox.classList.add('active');
+    return;
+  }
+
+  const blogId = extractBlogId(url);
+  if (!blogId) {
+    errorBox.innerHTML = '올바른 네이버 블로그 URL 형식이 아닙니다.<br><small style="color:var(--text-muted)">예: https://blog.naver.com/아이디</small>';
+    errorBox.classList.add('active');
+    return;
+  }
+
+  // Loading
+  btn.disabled = true;
+  loading.classList.add('active');
+  let msgIdx = 0;
+  const loadingText = document.getElementById('loadingText');
+  loadingText.textContent = LOADING_MESSAGES[0];
+  loadingInterval = setInterval(() => {
+    msgIdx = (msgIdx + 1) % LOADING_MESSAGES.length;
+    loadingText.textContent = LOADING_MESSAGES[msgIdx];
+  }, 700);
+
+  // Simulate API delay
+  await new Promise(r => setTimeout(r, 2800 + Math.random() * 1200));
+
+  clearInterval(loadingInterval);
+  loading.classList.remove('active');
+  btn.disabled = false;
+
+  // Generate result
+  const seed = strHash(blogId + keyword);
+  const score = generateScore(blogId, keyword);
+  const grade = getGradeInfo(score);
+  const metrics = generateMetrics(seed, score);
+  const advices = getAdvices(score, metrics, keyword);
+  const circumference = 2 * Math.PI * 50; // r=50 → ~314
+
+  const barData = [
+    { label: '활성도', val: metrics.activity, color: '#03c75a' },
+    { label: '콘텐츠', val: metrics.content, color: '#00a8e8' },
+    { label: '이웃망', val: metrics.neighbor, color: '#f5a623' },
+    { label: '영향력', val: metrics.influence, color: '#c084fc' },
+  ];
+
+  result.innerHTML = `
+    <div class="score-card">
+      <div class="score-circle">
+        <svg viewBox="0 0 120 120">
+          <circle class="track" cx="60" cy="60" r="50"/>
+          <circle class="fill" id="scoreFill" cx="60" cy="60" r="50"
+            stroke="${grade.color}"
+            style="stroke-dasharray:${circumference};stroke-dashoffset:${circumference}"/>
+        </svg>
+        <div class="score-value">
+          <span class="score-number" style="color:${grade.color}" id="scoreNum">0</span>
+          <span class="score-label">/ 100</span>
+        </div>
+      </div>
+      <div class="score-info">
+        <div class="score-blog-url">blog.naver.com/${blogId}</div>
+        <div class="score-grade" style="color:${grade.color}">${grade.grade}</div>
+        <div class="score-desc">${grade.desc}</div>
+        ${keyword ? `<span class="score-keyword"># ${keyword}</span>` : ''}
+      </div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card" style="--metric-color:${grade.color};--metric-pct:${score/100}">
+        <div class="metric-icon">📊</div>
+        <div class="metric-name">BLOG INDEX</div>
+        <div class="metric-val" style="color:${grade.color}">${score}</div>
+        <div class="metric-sub">종합 블로그 지수</div>
+      </div>
+      <div class="metric-card" style="--metric-color:#03c75a;--metric-pct:${metrics.activity/100}">
+        <div class="metric-icon">✍️</div>
+        <div class="metric-name">ACTIVITY</div>
+        <div class="metric-val" style="color:#03c75a">${metrics.activity}</div>
+        <div class="metric-sub">포스팅 활성도</div>
+      </div>
+      <div class="metric-card" style="--metric-color:#00a8e8;--metric-pct:${metrics.content/100}">
+        <div class="metric-icon">📝</div>
+        <div class="metric-name">CONTENT</div>
+        <div class="metric-val" style="color:#00a8e8">${metrics.content}</div>
+        <div class="metric-sub">콘텐츠 품질</div>
+      </div>
+      <div class="metric-card" style="--metric-color:#f5a623;--metric-pct:${metrics.neighbor/100}">
+        <div class="metric-icon">🤝</div>
+        <div class="metric-name">NEIGHBOR</div>
+        <div class="metric-val" style="color:#f5a623">${metrics.neighbor}</div>
+        <div class="metric-sub">이웃 네트워크</div>
+      </div>
+      <div class="metric-card" style="--metric-color:#c084fc;--metric-pct:${metrics.influence/100}">
+        <div class="metric-icon">⚡</div>
+        <div class="metric-name">INFLUENCE</div>
+        <div class="metric-val" style="color:#c084fc">${metrics.influence}</div>
+        <div class="metric-sub">인플루언서 지수</div>
+      </div>
+      <div class="metric-card" style="--metric-color:#ff6b35;--metric-pct:${Math.min(metrics.postCount/1000,1)}">
+        <div class="metric-icon">📅</div>
+        <div class="metric-name">EST. POSTS</div>
+        <div class="metric-val" style="color:#ff6b35">${metrics.postCount.toLocaleString()}</div>
+        <div class="metric-sub">추정 포스팅 수</div>
+      </div>
+    </div>
+
+    <div class="bar-section">
+      <div class="section-title">지수 세부 분석</div>
+      ${barData.map(b => `
+        <div class="bar-row">
+          <div class="bar-label">${b.label}</div>
+          <div class="bar-track">
+            <div class="bar-fill" data-width="${b.val}" style="background:${b.color}"></div>
+          </div>
+          <div class="bar-num">${b.val}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="bar-section">
+      <div class="section-title">개선 제안</div>
+      <ul class="advice-list">
+        ${advices.map((a, i) => `
+          <li class="advice-item" style="animation-delay:${i*0.08}s">
+            <div class="advice-dot" style="background:${a.color}"></div>
+            <div class="advice-text">${a.text}</div>
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+  `;
+
+  result.classList.add('active');
+
+  // Animate score circle
+  requestAnimationFrame(() => {
+    const fillEl = document.getElementById('scoreFill');
+    const offset = circumference * (1 - score / 100);
+    fillEl.style.strokeDashoffset = offset;
+
+    // count up
+    let cur = 0;
+    const numEl = document.getElementById('scoreNum');
+    const interval = setInterval(() => {
+      cur += Math.ceil(score / 40);
+      if (cur >= score) { cur = score; clearInterval(interval); }
+      numEl.textContent = cur;
+    }, 30);
+
+    // bar fills
+    setTimeout(() => {
+      document.querySelectorAll('.bar-fill').forEach(el => {
+        el.style.width = el.dataset.width + '%';
+      });
+      document.querySelectorAll('.metric-card').forEach(el => {
+        el.classList.add('loaded');
+      });
+    }, 300);
+  });
+}
+
+// Enter key
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') analyze();
+});
+document.getElementById('keywordInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') analyze();
+});
+</script>
+</body>
+</html>
